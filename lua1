@@ -1,173 +1,152 @@
--- MuzeGod's Weapon Enhancement Script v0.2
--- Improved version with additional features
-
---------- Configuration ---------
-local Config = {
-    Invite = "muzegod",
-    Version = "0.2",
-    UpdateInterval = 0.1,  -- How often to update weapon stats (seconds)
-    DefaultFireRate = 0.107,
-    MaxAmmoValue = 18,
-    DefaultMagValue = 9,
-    Debug = false  -- Set to true for debug messages
+-- Credits To The Original Devs @xz, @goof
+getgenv().Config = {
+	Invite = "mewzeee",
+	Version = "0.1",
 }
 
---------- Services ---------
+getgenv().luaguardvars = {
+	DiscordName = "mewzeee",
+}
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/drillygzzly/Other/main/1"))()
+
+library:init() -- Initializes Library Do Not Delete This
+
+local Window = library.NewWindow({
+	title = "mewzeee",
+	size = UDim2.new(0, 525, 0, 650)
+})
+
+local tabs = {
+    Aim = Window:AddTab("Aim"),
+	Settings = library:CreateSettingsTab(Window),
+}
+
+-- 1 = Set Section Box To The Left
+-- 2 = Set Section Box To The Right
+
+local sections = {
+	Section1 = tabs.Aim:AddSection("Weapon Mods", 1),
+	Section2 = tabs.Aim:AddSection("Silent Aim", 2),
+}
+
+-- Infinite Ammo Toggle
+sections.Section1:AddToggle({
+	enabled = false,
+	text = "Infinite Ammo",
+	flag = "Toggle_1",
+	tooltip = "Tooltip1",
+	risky = true, -- turns text to red and sets label to risky
+	callback = function(state)
+        isToggled = state
+        if isToggled then
+            for _, player in ipairs(Players:GetPlayers()) do
+                task.spawn(continuouslyUpdateWeaponStats, player)
+            end
+        end
+	end
+})
+
+-- Rapid Fire Toggle
+sections.Section1:AddToggle({
+	enabled = false,
+	text = "Rapid Fire",
+	flag = "Toggle_2",
+	tooltip = "Tooltip2",
+	risky = true, -- turns text to red and sets label to risky
+	callback = function(state)
+        toggleEnabled = state
+        if localPlayer.Character then
+            for _, child in ipairs(localPlayer.Character:GetChildren()) do
+                if child:IsA("Tool") then
+                    if toggleEnabled then
+                        enableOneShot(child)
+                    else
+                        disableOneShot(child)
+                    end
+                end
+            end
+        end
+	end
+})
+
+
+
+
+
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
---------- Variables ---------
 local localPlayer = Players.LocalPlayer
-local isToggled = false       -- Main toggle state
-local toggleEnabled = false   -- Toggle state for Rapid Fire
-local fireRateValue = Config.DefaultFireRate  -- Default fire rate value controlled by the slider
-local activeWeapons = {}      -- Track active weapons for cleanup
+local isToggled = false -- Toggle state for Infinite Ammo
+local toggleEnabled = false -- Toggle state for Rapid Fire
+local fireRateValue = 0.147 -- Default fire rate value controlled by the slider
 
---------- Helper Functions ---------
-local function debugPrint(...)
-    if Config.Debug then
-        print("[WeaponMod]", ...)
-    end
-end
-
-local function findWeaponInBackpack(player)
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then
-        return {}
-    end
-    
-    local weapons = {}
-    for _, item in ipairs(backpack:GetChildren()) do
-        if item:IsA("Tool") and item:FindFirstChild("Ammo") and item:FindFirstChild("Mag") then
-            table.insert(weapons, item)
-        end
-    end
-    
-    return weapons
-end
-
-local function findWeaponsInCharacter(character)
-    if not character then return {} end
-    
-    local weapons = {}
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("Tool") and child:FindFirstChild("Ammo") and child:FindFirstChild("Mag") then
-            table.insert(weapons, child)
-        end
-    end
-    
-    return weapons
-end
-
-local function getAllPlayerWeapons(player)
-    local weapons = {}
-    
-    -- Check backpack
-    for _, weapon in ipairs(findWeaponInBackpack(player)) do
-        table.insert(weapons, weapon)
-    end
-    
-    -- Check character
-    if player.Character then
-        for _, weapon in ipairs(findWeaponsInCharacter(player.Character)) do
-            table.insert(weapons, weapon)
-        end
-    end
-    
-    return weapons
-end
-
---------- Weapon Modification Functions ---------
-local function applyInfiniteAmmo(weapon)
-    if weapon:FindFirstChild("Ammo") and weapon:FindFirstChild("Mag") then
-        weapon.Ammo.Value = Config.MaxAmmoValue
-        weapon.Mag.Value = Config.DefaultMagValue
-        return true
-    end
-    return false
-end
-
+-- Function to continuously update weapon stats for Infinite Ammo
 local function continuouslyUpdateWeaponStats(player)
-    while isToggled do
-        local weapons = getAllPlayerWeapons(player)
-        for _, weapon in ipairs(weapons) do
-            applyInfiniteAmmo(weapon)
+    while isToggled do 
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            -- Loop through all items in the backpack
+            for _, item in ipairs(backpack:GetChildren()) do
+                if item:IsA("Tool") then 
+                    if item:FindFirstChild("Ammo") and item:FindFirstChild("Mag") then
+                        item.Ammo.Value = 18
+                        item.Mag.Value = 9
+                    end
+                end
+            end
         end
-        task.wait(Config.UpdateInterval)  -- Prevent infinite loops from freezing the game
+        task.wait(0.1) -- Prevent infinite loops from freezing the game
     end
 end
 
+-- Function to enable one-shot with adjustable fire rate
 local function enableOneShot(tool)
-    if not tool:IsA("Tool") then return false end
-    
-    local settingsModule = tool:FindFirstChild("Settings")
-    if settingsModule and settingsModule:IsA("ModuleScript") then
-        local success, settings = pcall(require, settingsModule)
-        if success and type(settings) == "table" and settings.BaseDamage ~= nil then
-            settings.FireRate = fireRateValue  -- Use the slider's fire rate value
-            settings.Auto = true  -- Enable rapid fire
-            activeWeapons[tool] = true
-            return true
+    if tool:IsA("Tool") then
+        local settingsModule = tool:FindFirstChild("Settings")
+        if settingsModule and settingsModule:IsA("ModuleScript") then
+            local success, settings = pcall(require, settingsModule)
+            if success and type(settings) == "table" and settings.BaseDamage ~= nil then
+                settings.FireRate = fireRateValue -- Use the slider's fire rate value
+                settings.Auto = true -- Enable rapid fire
+            else
+                warn("Failed to load settings for tool:", tool.Name)
+            end
         else
-            warn("Failed to load settings for tool:", tool.Name)
+            warn("Settings module not found in tool:", tool.Name)
         end
-    else
-        warn("Settings module not found in tool:", tool.Name)
     end
-    
-    return false
 end
 
+-- Function to disable one-shot
 local function disableOneShot(tool)
-    if not tool:IsA("Tool") then return false end
-    
-    local settingsModule = tool:FindFirstChild("Settings")
-    if settingsModule and settingsModule:IsA("ModuleScript") then
-        local success, settings = pcall(require, settingsModule)
-        if success and type(settings) == "table" and settings.BaseDamage ~= nil then
-            settings.Auto = false  -- Disable rapid fire
-            activeWeapons[tool] = nil
-            return true
+    if tool:IsA("Tool") then
+        local settingsModule = tool:FindFirstChild("Settings")
+        if settingsModule and settingsModule:IsA("ModuleScript") then
+            local success, settings = pcall(require, settingsModule)
+            if success and type(settings) == "table" and settings.BaseDamage ~= nil then
+                settings.Auto = false -- Disable rapid fire
+            else
+                warn("Failed to load settings for tool:", tool.Name)
+            end
         else
-            warn("Failed to load settings for tool:", tool.Name)
+            warn("Settings module not found in tool:", tool.Name)
         end
-    else
-        warn("Settings module not found in tool:", tool.Name)
     end
-    
-    return false
 end
 
---------- Event Handlers ---------
-local function handleCharacterAdded(character)
-    -- Monitor character for weapons
-    character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") and toggleEnabled then
-            enableOneShot(child)
+
+-- Handle new players joining
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if isToggled then
+            task.spawn(continuouslyUpdateWeaponStats, player)
         end
     end)
-    
-    -- Apply to existing tools
-    if toggleEnabled then
-        for _, tool in ipairs(findWeaponsInCharacter(character)) do
-            enableOneShot(tool)
-        end
-    end
-end
+end)
 
-local function handlePlayerAdded(player)
-    if player ~= localPlayer then return end
-    
-    -- Handle character changes
-    player.CharacterAdded:Connect(handleCharacterAdded)
-    if player.Character then
-        handleCharacterAdded(player.Character)
-    end
-    
-    -- Handle infinite ammo
-    if isToggled then
+-- Initialize for existing players
+if isToggled then
+    for _, player in ipairs(Players:GetPlayers()) do
         task.spawn(continuouslyUpdateWeaponStats, player)
     end
 end
-
