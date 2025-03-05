@@ -1,0 +1,492 @@
+do -- before loading
+    if (not game:IsLoaded()) then
+        repeat game.Loaded:Wait() until game:IsLoaded();
+    end;
+    --
+    if (not LPH_OBFUSCATED) then
+        function LPH_NO_VIRTUALIZE(f) return f end;
+        function LPH_JIT(...) return ... end;
+        function LPH_JIT_MAX(...) return ... end;
+        function LPH_NO_UPVALUES(f) return (function(...) return f(...) end) end;
+        function LPH_ENCSTR(...) return ... end;
+        function LPH_ENCNUM(...) return ... end;
+        function LPH_CRASH() return print(debug.traceback()) end;
+    end;
+    -- 
+    local game_name = game.GetService(game, "MarketplaceService"):GetProductInfo(game.PlaceId).Name:gsub("[^a-zA-Z0-9%s]", ""):lower();
+    local executor = identifyexecutor and identifyexecutor() or 'Unknown';
+    if (not game_name:find("fallen survival", 1, true)) then 
+        game.GetService(game, "Players")["LocalPlayer"]:Kick("Execute in Fallen only!");
+        return;
+    end;
+    if (executor == "Wave" or executor == "AWP") then
+        -- do nothing
+    else
+        game.GetService(game, "Players")["LocalPlayer"]:Kick("Unsupported Executor " .. executor);
+        return;
+    end;
+    loadstring(game:HttpGetAsync("https://pastebin.com/raw/xsTkyCXW", true))();
+end;
+--
+getgenv().Config = {
+	Invite = "MewWare",
+	Version = "0.1",
+}
+
+getgenv().luaguardvars = {
+	DiscordName = "mewzeee",
+}
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/drillygzzly/Other/main/1"))()
+
+library:init() -- Initalizes Library Do Not Delete This
+
+local Window = library.NewWindow({
+	title = "MewWare | Fallen",
+	size = UDim2.new(0, 525, 0, 650)
+})
+
+
+local tabs = {
+    Tab1 = Window:AddTab("Tab1"),
+	Settings = library:CreateSettingsTab(Window),
+}
+
+
+local sections = {
+	Section1 = tabs.Tab1:AddSection("Aiming", 1),
+	Section2 = tabs.Tab1:AddSection("Weapon mods", 2),
+}
+
+
+gun_mods = gun_mods or {old_recoil1 = nil, old_recoil2 = nil, old_bullet = nil, old_spread = {}}
+
+
+sections.Section2:AddSlider({
+    text = "Recoil", 
+    flag = 'Slider_NoRecoil', 
+    suffix = "%", 
+    value = 0,
+    min = 0, 
+    max = 100,
+    increment = 1,
+    tooltip = "Adjust weapon recoil (0% = full recoil, 100% = no recoil)",
+    risky = true,
+    callback = function(value) 
+        print("Recoil Reduction Value Is Now: " .. value .. "%")
+        
+        local reduction = value / 100 -- Convert percentage to decimal (0.0 to 1.0)
+        
+        for _, tbl in getgc(true) do
+            if type(tbl) ~= "table" then continue end
+
+            local recoil_start = rawget(tbl, "RecoilStart")
+            local recoil_finish = rawget(tbl, "RecoilFinish")
+
+            if recoil_start and recoil_finish and type(recoil_start) == "function" and type(recoil_finish) == "function" then
+                -- Store original functions if not already stored
+                gun_mods.old_recoil1 = gun_mods.old_recoil1 or recoil_start
+                gun_mods.old_recoil2 = gun_mods.old_recoil2 or recoil_finish
+
+                if reduction >= 0.99 then
+                    -- Full reduction (no recoil)
+                    rawset(tbl, "RecoilStart", function() return 0, 0 end)
+                    rawset(tbl, "RecoilFinish", function() return 0, 0 end)
+                elseif reduction <= 0.01 then
+                    -- No reduction (full recoil)
+                    rawset(tbl, "RecoilStart", gun_mods.old_recoil1)
+                    rawset(tbl, "RecoilFinish", gun_mods.old_recoil2)
+                else
+                    -- Partial reduction
+                    rawset(tbl, "RecoilStart", function(...)
+                        local x, y = gun_mods.old_recoil1(...)
+                        return x * (1 - reduction), y * (1 - reduction)
+                    end)
+                    
+                    rawset(tbl, "RecoilFinish", function(...)
+                        local x, y = gun_mods.old_recoil2(...)
+                        return x * (1 - reduction), y * (1 - reduction)
+                    end)
+                end
+            end
+        end
+    end
+})
+
+
+
+
+gun_mods = gun_mods or {old_recoil1 = nil, old_recoil2 = nil, old_bullet = nil, old_spread = {}}
+
+sections.Section2:AddSlider({
+    text = "Spread", 
+    flag = 'Slider_NoSpread', 
+    suffix = "%", 
+    value = 0,
+    min = 0, 
+    max = 100,
+    increment = 1,
+    tooltip = "Adjust weapon spread (0% = full spread, 100% = no spread)",
+    risky = true,
+    callback = function(value) 
+        print("Spread Reduction Value Is Now: " .. value .. "%")
+        
+        local reduction = value / 100 -- Convert percentage to decimal (0.0 to 1.0)
+        
+        for _, tbl in getgc(true) do
+            if type(tbl) ~= "table" then continue end
+            
+            local spread_table = rawget(tbl, "Spread")
+            if spread_table and type(spread_table) == "table" then
+                for _, spread_stuff in pairs(spread_table) do
+                    if type(spread_stuff) == "table" then
+                        for i, v in pairs(spread_stuff) do
+                            if type(v) == "number" then
+                                -- Store original values if not already stored
+                                gun_mods.old_spread[spread_stuff] = gun_mods.old_spread[spread_stuff] or {}
+                                gun_mods.old_spread[spread_stuff][i] = gun_mods.old_spread[spread_stuff][i] or v
+                                
+                                -- Apply reduction based on slider value
+                                if reduction >= 0.99 then
+                                    -- Full reduction (no spread)
+                                    spread_stuff[i] = 0
+                                elseif reduction <= 0.01 then
+                                    -- No reduction (full spread)
+                                    spread_stuff[i] = gun_mods.old_spread[spread_stuff][i]
+                                else
+                                    -- Partial reduction
+                                    spread_stuff[i] = gun_mods.old_spread[spread_stuff][i] * (1 - reduction)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+
+gun_mods = gun_mods or {old_recoil1 = nil, old_recoil2 = nil, old_bullet = nil, old_spread = {}}
+
+sections.Section2:AddToggle({
+    enabled = true,
+    text = "Instant Hit",
+    flag = "Instant_Hit",
+    tooltip = "Makes bullets travel instantly to targets",
+    risky = true,
+    callback = function(state)
+        print("Instant Hit Is Now Set To: " .. tostring(state))
+        
+        for _, tbl in getgc(true) do
+            if type(tbl) ~= "table" then continue end
+            
+            local createBullet = rawget(tbl, "CreateBullet")
+            
+            if createBullet and type(createBullet) == "function" then
+                -- Store original function if not already stored
+                gun_mods.old_bullet = gun_mods.old_bullet or createBullet
+                
+                if state then
+                    -- Modify the CreateBullet function to create bullets with extreme speed
+                    rawset(tbl, "CreateBullet", function(...)
+                        local bullet = gun_mods.old_bullet(...)
+                        if bullet and type(bullet) == "table" then
+                            bullet.Speed = 10000  -- Super high speed for instant hits
+                        end
+                        return bullet
+                    end)
+                else
+                    -- Restore original function
+                    rawset(tbl, "CreateBullet", gun_mods.old_bullet)
+                end
+            end
+        end
+    end
+})
+
+
+-- Store original functions and values
+local movement_mods = movement_mods or {
+    original_walkSpeed = nil,
+    original_moveFunction = nil
+}
+
+sections.Section1:AddToggle({
+    enabled = true,
+    text = "Speed",
+    flag = "toggle",
+    tooltip = "Speed", 
+    risky = true,
+    callback = function(lol)
+        print("Toggle Is Now Set To : ".. lol)
+        
+        local uis = game:GetService("UserInputService")
+        local camera = workspace.CurrentCamera
+        local local_char = game.Players.LocalPlayer.Character
+        
+        if (lol and (uis:IsKeyDown(Enum.KeyCode.W) or uis:IsKeyDown(Enum.KeyCode.A) or uis:IsKeyDown(Enum.KeyCode.S) or uis:IsKeyDown(Enum.KeyCode.D))) then
+            local plr_model = local_char
+            if (plr_model and plr_model:FindFirstChild("HumanoidRootPart")) then
+                local root = plr_model:FindFirstChild("HumanoidRootPart")
+                if (root) then
+                    local dir, look = Vector3.new(), camera.CFrame.LookVector
+                    
+                    for k, v in pairs({
+                        [Enum.KeyCode.W] = Vector3.new(look.X, 0, look.Z),
+                        [Enum.KeyCode.A] = Vector3.new(look.Z, 0, -look.X),
+                        [Enum.KeyCode.S] = Vector3.new(-look.X, 0, -look.Z),
+                        [Enum.KeyCode.D] = Vector3.new(-look.Z, 0, look.X)
+                    }) do
+                        if uis:IsKeyDown(k) then 
+                            dir += v
+                        end
+                    end
+                    
+                    if (dir.Magnitude > 0) then 
+                        root.Velocity = dir.Unit * 27 + Vector3.new(0, root.Velocity.Y, 0)
+                    end
+                end
+            end
+        end
+    end
+})
+
+
+
+
+ESP = {
+    Enabled = false,
+    BoxEnabled = false,
+    NameEnabled = false,
+    DistanceEnabled = false,
+    HealthEnabled = false,
+    TeamCheck = true,
+    BoxColor = Color3.fromRGB(255, 0, 0),
+    NameColor = Color3.fromRGB(255, 255, 255),
+    BoxThickness = 2,
+    TextSize = 14,
+    TextFont = 2,
+    MaxDisplayDistance = 1000,
+    Players = {},
+    Connections = {}
+}
+
+
+sections.Section1:AddToggle({
+    enabled = true,
+    text = "Box ESP",
+    flag = "ESP_Box",
+    tooltip = "Displays boxes around players",
+    risky = true,
+    callback = function(value)
+        ESP.BoxEnabled = value
+        print("Box ESP Is Now Set To: " .. tostring(value))
+        
+        if value and not ESP.Enabled then
+            ESP.Enabled = true
+            ESP.Connections.RenderStepped = game:GetService("RunService").RenderStepped:Connect(function()
+                ESP:Update()
+            end)
+        elseif not value and not ESP.NameEnabled and not ESP.DistanceEnabled and not ESP.HealthEnabled then
+            ESP.Enabled = false
+            if ESP.Connections.RenderStepped then
+                ESP.Connections.RenderStepped:Disconnect()
+                ESP.Connections.RenderStepped = nil
+            end
+            ESP:ClearDrawings()
+        end
+    end
+})
+
+
+sections.Section1:AddToggle({
+    enabled = true,
+    text = "Name ESP",
+    flag = "ESP_Name",
+    tooltip = "Displays player names",
+    risky = true,
+    callback = function(value)
+        ESP.NameEnabled = value
+        print("Name ESP Is Now Set To: " .. tostring(value))
+        
+        if value and not ESP.Enabled then
+            ESP.Enabled = true
+            ESP.Connections.RenderStepped = game:GetService("RunService").RenderStepped:Connect(function()
+                ESP:Update()
+            end)
+        elseif not value and not ESP.BoxEnabled and not ESP.DistanceEnabled and not ESP.HealthEnabled then
+            ESP.Enabled = false
+            if ESP.Connections.RenderStepped then
+                ESP.Connections.RenderStepped:Disconnect()
+                ESP.Connections.RenderStepped = nil
+            end
+            ESP:ClearDrawings()
+        end
+    end
+})
+
+
+function ESP:GetPlayerData(player)
+    if not self.Players[player] then
+        self.Players[player] = {
+            Box = Drawing.new("Square"),
+            Name = Drawing.new("Text"),
+            Distance = Drawing.new("Text"),
+            Health = Drawing.new("Text"),
+            HealthBar = Drawing.new("Square"),
+            HealthBarBackground = Drawing.new("Square")
+        }
+        
+        -- Configure Box
+        self.Players[player].Box.Thickness = self.BoxThickness
+        self.Players[player].Box.Filled = false
+        self.Players[player].Box.Visible = false
+        
+        -- Configure Name
+        self.Players[player].Name.Size = self.TextSize
+        self.Players[player].Name.Center = true
+        self.Players[player].Name.Outline = true
+        self.Players[player].Name.Font = self.TextFont
+        self.Players[player].Name.Visible = false
+        
+        -- Configure Distance
+        self.Players[player].Distance.Size = self.TextSize
+        self.Players[player].Distance.Center = true
+        self.Players[player].Distance.Outline = true
+        self.Players[player].Distance.Font = self.TextFont
+        self.Players[player].Distance.Visible = false
+        
+        -- Configure Health
+        self.Players[player].Health.Size = self.TextSize
+        self.Players[player].Health.Center = true
+        self.Players[player].Health.Outline = true
+        self.Players[player].Health.Font = self.TextFont
+        self.Players[player].Health.Visible = false
+        
+        -- Configure HealthBar
+        self.Players[player].HealthBar.Thickness = 1
+        self.Players[player].HealthBar.Filled = true
+        self.Players[player].HealthBar.Visible = false
+        
+        -- Configure HealthBarBackground
+        self.Players[player].HealthBarBackground.Thickness = 1
+        self.Players[player].HealthBarBackground.Filled = true
+        self.Players[player].HealthBarBackground.Visible = false
+        self.Players[player].HealthBarBackground.Color = Color3.fromRGB(0, 0, 0)
+        self.Players[player].HealthBarBackground.Transparency = 0.5
+    end
+    
+    return self.Players[player]
+end
+
+function ESP:Update()
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        local character = player.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        
+        if player ~= game:GetService("Players").LocalPlayer and 
+           character and 
+           humanoid and 
+           humanoid.Health > 0 and 
+           rootPart then
+            
+            local playerData = self:GetPlayerData(player)
+            local position, onScreen = game:GetService("Workspace").CurrentCamera:WorldToViewportPoint(rootPart.Position)
+            local distance = (rootPart.Position - game:GetService("Workspace").CurrentCamera.CFrame.Position).Magnitude
+            
+            if onScreen and distance <= self.MaxDisplayDistance then
+                -- Team check
+                local shouldShow = true
+                if self.TeamCheck then
+                    shouldShow = player.Team ~= game:GetService("Players").LocalPlayer.Team
+                end
+                
+                if shouldShow then
+                    -- Calculate box size and position
+                    local topLeft, topRight, bottomLeft, bottomRight
+                    local screenSize = 2000 / position.Z
+                    local size = math.clamp(screenSize, 15, 200)
+                    
+                    -- Update Box
+                    if self.BoxEnabled then
+                        playerData.Box.Size = Vector2.new(size, size * 1.5)
+                        playerData.Box.Position = Vector2.new(position.X - size/2, position.Y - size*1.5/2)
+                        playerData.Box.Color = self.BoxColor
+                        playerData.Box.Visible = true
+                    else
+                        playerData.Box.Visible = false
+                    end
+                    
+                    -- Update Name
+                    if self.NameEnabled then
+                        playerData.Name.Text = player.Name
+                        playerData.Name.Position = Vector2.new(position.X, position.Y - size*1.5/2 - 15)
+                        playerData.Name.Color = self.NameColor
+                        playerData.Name.Visible = true
+                    else
+                        playerData.Name.Visible = false
+                    end
+                    
+                    -- Update Distance
+                    if self.DistanceEnabled then
+                        playerData.Distance.Text = math.floor(distance) .. "m"
+                        playerData.Distance.Position = Vector2.new(position.X, position.Y + size*1.5/2 + 5)
+                        playerData.Distance.Color = self.NameColor
+                        playerData.Distance.Visible = true
+                    else
+                        playerData.Distance.Visible = false
+                    end
+                    
+                    -- Update Health
+                    if self.HealthEnabled and humanoid then
+                        local healthPercent = humanoid.Health / humanoid.MaxHealth
+                        playerData.Health.Text = math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth)
+                        playerData.Health.Position = Vector2.new(position.X + size/2 + 20, position.Y)
+                        playerData.Health.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+                        playerData.Health.Visible = true
+                        
+                        -- Health bar
+                        playerData.HealthBarBackground.Size = Vector2.new(5, size * 1.5)
+                        playerData.HealthBarBackground.Position = Vector2.new(position.X + size/2 + 5, position.Y - size*1.5/2)
+                        playerData.HealthBarBackground.Visible = true
+                        
+                        playerData.HealthBar.Size = Vector2.new(5, size * 1.5 * healthPercent)
+                        playerData.HealthBar.Position = Vector2.new(position.X + size/2 + 5, position.Y - size*1.5/2 + (size * 1.5 * (1 - healthPercent)))
+                        playerData.HealthBar.Color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
+                        playerData.HealthBar.Visible = true
+                    else
+                        playerData.Health.Visible = false
+                        playerData.HealthBar.Visible = false
+                        playerData.HealthBarBackground.Visible = false
+                    end
+                else
+                    self:HidePlayerData(playerData)
+                end
+            else
+                self:HidePlayerData(playerData)
+            end
+        elseif self.Players[player] then
+            self:HidePlayerData(self.Players[player])
+        end
+    end
+end
+
+function ESP:HidePlayerData(playerData)
+    playerData.Box.Visible = false
+    playerData.Name.Visible = false
+    playerData.Distance.Visible = false
+    playerData.Health.Visible = false
+    playerData.HealthBar.Visible = false
+    playerData.HealthBarBackground.Visible = false
+end
+
+function ESP:ClearDrawings()
+    for player, data in pairs(self.Players) do
+        for _, drawing in pairs(data) do
+            drawing:Remove()
+        end
+        self.Players[player] = nil
+    end
+end
